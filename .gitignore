@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+order_processing.log
+results_summary.txt
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
