@@ -3,6 +3,7 @@ import requests
 import logging
 import time
 import json
+import random
 from typing import Dict
 from functools import wraps
 
@@ -19,25 +20,42 @@ logger = logging.getLogger(__name__)
 
 
 class OrderAPIError(Exception):
-    """Кастомное исключение для ошибок API"""
     pass
 
 
+def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    """
+    Декоратор для повторных попыток при ошибках
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except (requests.RequestException, json.JSONDecodeError, KeyError) as e:
+                    if attempt == max_attempts - 1:
+                        logger.error(f"Все попытки ({max_attempts}) не удались для {func.__name__}: {e}")
+                        raise
+                    logger.warning(f"Попытка {attempt + 1} не удалась, повтор через {current_delay}с: {e}")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+            return None
+        return wrapper
+    return decorator
+
+
 def load_orders(path: str) -> pd.DataFrame:
-    """
-    Загрузка данных из Excel файла с обработкой ошибок
-    """
     try:
         logger.info(f"Загрузка файла: {path}")
         df = pd.read_excel(path)
         
-        # Проверка наличия обязательных колонок
         required_columns = ['order_id', 'sku', 'price', 'qty']
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             raise ValueError(f"Отсутствуют обязательные колонки: {missing_columns}")
         
-        # Проверка типов данных
         if not pd.api.types.is_numeric_dtype(df['price']):
             df['price'] = pd.to_numeric(df['price'], errors='coerce')
             if df['price'].isna().any():
@@ -48,7 +66,6 @@ def load_orders(path: str) -> pd.DataFrame:
             if df['qty'].isna().any():
                 logger.warning("Обнаружены некорректные количества, заменены на NaN")
         
-        # Удаление строк с некорректными данными
         before_count = len(df)
         df = df.dropna(subset=['price', 'qty'])
         after_count = len(df)
@@ -69,11 +86,11 @@ def load_orders(path: str) -> pd.DataFrame:
         raise
 
 
+@retry(max_attempts=3, delay=1.0, backoff=2.0)
 def get_order_status(order_id: str) -> str:
     """
-    Получение статуса заказа из внешнего API
+    Получение статуса заказа с повторными попытками
     """
-    # Для тестов используем мок
     statuses = {
         'ORD-1001': 'delivered',
         'ORD-1002': 'delivered',
@@ -96,13 +113,16 @@ def get_order_status(order_id: str) -> str:
         'ORD-1019': 'returned',
         'ORD-1020': 'delivered'
     }
+    
+    # Симуляция ошибки API (10% вероятность) для демонстрации retry
+    if random.random() < 0.1:
+        logger.warning(f"Симуляция ошибки API для заказа {order_id}")
+        raise requests.RequestException("Симуляция ошибки API")
+    
     return statuses.get(order_id, 'unknown')
 
 
 def calc_revenue_by_sku(df: pd.DataFrame) -> Dict[str, float]:
-    """
-    Расчет выручки по SKU с учетом статуса заказа
-    """
     if df.empty:
         logger.warning("DataFrame пуст, возвращаем пустой словарь")
         return {}
@@ -121,7 +141,6 @@ def calc_revenue_by_sku(df: pd.DataFrame) -> Dict[str, float]:
             sku = str(row['sku'])
             amount = float(row['price']) * float(row['qty'])
             
-            # Суммируем выручку по SKU (ИСПРАВЛЕНО!)
             if sku in revenue:
                 revenue[sku] += amount
             else:
@@ -141,19 +160,14 @@ def calc_revenue_by_sku(df: pd.DataFrame) -> Dict[str, float]:
 
 def main():
     try:
-        # Загрузка данных
-        sales_df = load_orders("orders.xlsx")
+        df = load_orders("orders.xlsx")
+        revenue = calc_revenue_by_sku(df)
         
-        # Расчет выручки
-        logger.info("Начало расчета выручки по SKU...")
-        revenue_by_sku = calc_revenue_by_sku(sales_df)
-        
-        # Вывод результатов
         logger.info("=" * 50)
         logger.info("ВЫРУЧКА ПО ТОВАРАМ:")
-        for sku, total in sorted(revenue_by_sku.items(), key=lambda x: x[1], reverse=True):
+        for sku, total in sorted(revenue.items(), key=lambda x: x[1], reverse=True):
             logger.info(f"{sku}: {total:,.2f} руб.")
-        
+            
     except Exception as e:
         logger.critical(f"Критическая ошибка: {e}", exc_info=True)
         raise
