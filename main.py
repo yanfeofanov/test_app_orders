@@ -73,7 +73,7 @@ def get_order_status(order_id: str) -> str:
     """
     Получение статуса заказа из внешнего API
     """
-    # Для тестов используем мок
+    # Мок для демонстрации
     statuses = {
         'ORD-1001': 'delivered',
         'ORD-1002': 'delivered',
@@ -121,7 +121,7 @@ def calc_revenue_by_sku(df: pd.DataFrame) -> Dict[str, float]:
             sku = str(row['sku'])
             amount = float(row['price']) * float(row['qty'])
             
-            # Суммируем выручку по SKU (ИСПРАВЛЕНО!)
+            # ИСПРАВЛЕНО: суммируем, а не перезаписываем
             if sku in revenue:
                 revenue[sku] += amount
             else:
@@ -141,19 +141,14 @@ def calc_revenue_by_sku(df: pd.DataFrame) -> Dict[str, float]:
 
 def main():
     try:
-        # Загрузка данных
-        sales_df = load_orders("orders.xlsx")
+        df = load_orders("orders.xlsx")
+        revenue = calc_revenue_by_sku(df)
         
-        # Расчет выручки
-        logger.info("Начало расчета выручки по SKU...")
-        revenue_by_sku = calc_revenue_by_sku(sales_df)
-        
-        # Вывод результатов
         logger.info("=" * 50)
         logger.info("ВЫРУЧКА ПО ТОВАРАМ:")
-        for sku, total in sorted(revenue_by_sku.items(), key=lambda x: x[1], reverse=True):
+        for sku, total in sorted(revenue.items(), key=lambda x: x[1], reverse=True):
             logger.info(f"{sku}: {total:,.2f} руб.")
-        
+            
     except Exception as e:
         logger.critical(f"Критическая ошибка: {e}", exc_info=True)
         raise
