@@ -91,6 +91,10 @@ def load_orders(path: str) -> pd.DataFrame:
 
 @retry(max_attempts=3, delay=1.0, backoff=2.0)
 def get_order_status(order_id: str) -> str:
+    """
+    Получение статуса заказа из внешнего API
+    """
+    # Мок для демонстрации
     statuses = {
         'ORD-1001': 'delivered',
         'ORD-1002': 'delivered',
@@ -140,6 +144,7 @@ def calc_revenue_by_sku(df: pd.DataFrame) -> Dict[str, float]:
             sku = str(row['sku'])
             amount = float(row['price']) * float(row['qty'])
             
+            # ИСПРАВЛЕНО: суммируем, а не перезаписываем
             if sku in revenue:
                 revenue[sku] += amount
             else:
@@ -355,6 +360,14 @@ def main():
         
         logger.info("Скрипт успешно завершен")
         
+        df = load_orders("orders.xlsx")
+        revenue = calc_revenue_by_sku(df)
+        
+        logger.info("=" * 50)
+        logger.info("ВЫРУЧКА ПО ТОВАРАМ:")
+        for sku, total in sorted(revenue.items(), key=lambda x: x[1], reverse=True):
+            logger.info(f"{sku}: {total:,.2f} руб.")
+            
     except Exception as e:
         logger.critical(f"Критическая ошибка: {e}", exc_info=True)
         raise
