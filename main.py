@@ -91,6 +91,9 @@ def load_orders(path: str) -> pd.DataFrame:
 
 @retry(max_attempts=3, delay=1.0, backoff=2.0)
 def get_order_status(order_id: str) -> str:
+    """
+    Получение статуса заказа с повторными попытками
+    """
     # Мок для демонстрации
     statuses = {
         'ORD-1001': 'delivered',
@@ -142,7 +145,7 @@ def calc_revenue_by_sku(df: pd.DataFrame) -> Dict[str, float]:
             sku = str(row['sku'])
             amount = float(row['price']) * float(row['qty'])
             
-            # Суммируем, а не перезаписываем
+            # ИСПРАВЛЕНО: суммируем, а не перезаписываем
             if sku in revenue:
                 revenue[sku] += amount
             else:
