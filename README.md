@@ -39,10 +39,10 @@ pip install -r requirements.txt
 
 # Запуск приложения 
 1. Базовый запуск 
-python main.py -s orders.xlsx -r "Реестр заказов (для сверки).xlsx"
+python3 main.py -s orders.xlsx -r "Реестр заказов (для сверки).xlsx"
 2. Запуск c сохранением результатов в файл
-python main.py -s orders.xlsx -r "Реестр заказов (для сверки).xlsx" -o report.txt
+python3 main.py -s orders.xlsx -r "Реестр заказов (для сверки).xlsx" -o report.txt
 3. Запуск с подробным логированием
-python main.py -s orders.xlsx -r "Реестр заказов (для сверки).xlsx" -v
+python3 main.py -s orders.xlsx -r "Реестр заказов (для сверки).xlsx" -v
 4. Запуск тестов 
 pytest test_order_processing.py -v
